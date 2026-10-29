@@ -1,0 +1,31 @@
+workflows:
+  ios-prototype:
+    name: Cursa - unsigned prototype
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Parser tests
+        script: |
+          set -euo pipefail
+          swiftc Shared/Offer.swift Tests/main.swift -o /tmp/cursa-parser-tests
+          /tmp/cursa-parser-tests
+      - name: Install XcodeGen and generate project
+        script: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate
+      - name: Compile unsigned device application
+        script: |
+          set -euo pipefail
+          xcodebuild -project Cursa.xcodeproj -scheme Cursa -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package unsigned IPA
+        script: |
+          set -euo pipefail
+          mkdir -p package/Payload
+          cp -R build/Build/Products/Release-iphoneos/Cursa.app package/Payload/
+          cd package
+          zip -qry ../Cursa-unsigned.ipa Payload
+    artifacts:
+      - Cursa-unsigned.ipa
+      - /tmp/xcodebuild_logs/*.log
