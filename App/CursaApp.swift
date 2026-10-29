@@ -11,21 +11,31 @@ struct MainView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("cursa.").font(.largeTitle.bold())
+                HStack(spacing: 12) {
+                    Image("BrandMark").resizable().scaledToFit()
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Text("cursa2").font(.largeTitle.bold())
+                }
                 Text("Lei/km, direct peste cursă").font(.title2.bold())
-                Text("PROTOTIP · PORNIRE SIMPLĂ v2").font(.caption).foregroundStyle(.secondary)
-                PreviewView(model: model).frame(height: 180).clipShape(RoundedRectangle(cornerRadius: 20))
-                Text(model.status).font(.callout)
+                Text("PORNIRE CU CONFIRMARE · v3").font(.caption).foregroundStyle(.secondary)
                 HStack(spacing: 14) {
                     BroadcastPicker().frame(width: 64, height: 64)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("1. Pornește").font(.headline)
-                        Text("Apasă cercul albastru din stânga.").font(.subheadline)
+                        Text("Apasă pictograma albastră pentru a deschide fereastra iOS.").font(.subheadline)
                     }
                 }
-                Text("2. În fereastra iOS, selectează Cursa Capture și confirmă «Pornește difuzarea». Lasă microfonul oprit.")
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+                Text("2. Confirmă «Începe difuzarea» în fereastra iOS. Dacă apare o listă, alege cursa2 Capture.")
+                Text("Confirmi o dată la pornirea sesiunii. Cât timp difuzarea rămâne activă, nu mai confirmi pentru fiecare cursă.")
+                    .font(.footnote).foregroundStyle(.secondary)
                 Button("3. Activează panoul PiP") { model.demo = false; model.render(); model.start() }.buttonStyle(.borderedProminent)
-                Text("Acum deschide Bolt Driver. Ține panoul sus, deasupra ofertei. Când primim o ofertă recunoscută, afișăm lei/km.")
+                Text("Acum deschide Bolt Driver. Ține panoul sus, deasupra ofertei. Panoul afișează RON/km, RON/oră, distanța și durata totală.")
+                PreviewView(model: model).frame(height: 180).clipShape(RoundedRectangle(cornerRadius: 20))
+                Text(model.status).font(.callout)
                 Button("Oprește PiP") { model.stop() }
                 Text("Oprește separat captura din indicatorul de înregistrare iOS. Imaginile sunt analizate local; nu sunt salvate sau trimise pe internet. Sunt partajate local numai prețul, distanțele și momentul citirii.").font(.footnote).foregroundStyle(.secondary)
                 DisclosureGroup("Diagnostic și test separat") {
@@ -61,7 +71,7 @@ struct BroadcastPicker: UIViewRepresentable {
         view.tintColor = .systemBlue
         for button in view.subviews.compactMap({ $0 as? UIButton }) {
             button.tintColor = .systemBlue
-            button.accessibilityLabel = "Pornește difuzarea Cursa"
+            button.accessibilityLabel = "Pornește difuzarea cursa2"
         }
         view.showsMicrophoneButton = false
         return view
