@@ -1,0 +1,54 @@
+name: Cursa iOS
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cursa-ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parser tests
+        run: |
+          set -euo pipefail
+          swiftc Shared/Offer.swift Tests/main.swift -o /tmp/cursa-parser-tests
+          /tmp/cursa-parser-tests
+      - name: Generate Xcode project
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate
+      - name: Compile for iPhone without signing
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -project Cursa.xcodeproj -scheme Cursa -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tee build.log
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          mkdir -p package/Payload
+          cp -R build/Build/Products/Release-iphoneos/Cursa.app package/Payload/
+          cd package
+          zip -qry ../Cursa-unsigned.ipa Payload
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cursa-unsigned
+          path: Cursa-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 3
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 3
