@@ -18,7 +18,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with type: RPSampleBufferType) {
         guard type == .video else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastScan >= 0.7 else { return }
+        guard now - lastScan >= 0.25 else { return }
         lastScan = now
         autoreleasepool {
             guard let image = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
@@ -27,16 +27,19 @@ final class SampleHandler: RPBroadcastSampleHandler {
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = false
+            // Crop the OCR work itself, rather than scanning the map and
+            // discarding its text afterwards. Vision uses a lower-left origin.
+            request.regionOfInterest = CGRect(x: 0, y: 0, width: 1, height: 0.55)
             do {
                 try VNImageRequestHandler(cvPixelBuffer: image, orientation: orientation, options: [:]).perform([request])
                 // Restrict to lower offer card. Never persist images, names, or addresses.
-                let lines = (request.results ?? []).filter { $0.boundingBox.midY < 0.55 }.sorted { $0.boundingBox.midY > $1.boundingBox.midY }.compactMap { $0.topCandidates(1).first?.string }
+                let lines = (request.results ?? []).sorted { $0.boundingBox.midY > $1.boundingBox.midY }.compactMap { $0.topCandidates(1).first?.string }
                 guard let offer = OfferParser.parse(lines.joined(separator: "\n")) else {
                     candidate = nil; count = 0
                     SharedStore.write(nil, message: "Aștept o ofertă clară")
                     return
                 }
-                count = candidate == offer ? count + 1 : 1
+                count = candidate == offer ? min(count + 1, 2) : 1
                 candidate = offer
                 SharedStore.write(count >= 2 ? offer : nil, message: count >= 2 ? "Ofertă detectată" : "Verific cifrele…")
             } catch {
@@ -46,3 +49,4 @@ final class SampleHandler: RPBroadcastSampleHandler {
         }
     }
 }
+
