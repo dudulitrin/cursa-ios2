@@ -28,7 +28,7 @@ targets:
     entitlements:
       path: Generated/App.entitlements
       properties:
-        com.apple.security.application-groups: [$(CURSA_GROUP)]
+        com.apple.security.application-groups: [group.ro.cursa.prototype]
     dependencies:
       - target: Broadcast
         embed: true
@@ -53,7 +53,7 @@ targets:
     entitlements:
       path: Generated/Broadcast.entitlements
       properties:
-        com.apple.security.application-groups: [$(CURSA_GROUP)]
+        com.apple.security.application-groups: [group.ro.cursa.prototype]
 schemes:
   Cursa:
     build:
