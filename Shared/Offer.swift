@@ -38,8 +38,33 @@ struct Snapshot: Codable {
 }
 
 enum SharedStore {
+    static var groupCandidates: [String] {
+        let bundle = Bundle.main
+        let original = bundle.object(forInfoDictionaryKey: "CursaAppGroup") as? String ?? "group.ro.cursa.prototype"
+        var candidates = bundle.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
+        // Read names, not secrets, from the installed provisioning profile.
+        // containerURL below still enforces the actual signed iOS permissions.
+        if let url = bundle.url(forResource: "embedded", withExtension: "mobileprovision"),
+           let data = try? Data(contentsOf: url),
+           let start = data.range(of: Data("<?xml".utf8)),
+           let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+           let plist = try? PropertyListSerialization.propertyList(from: data.subdata(in: start.lowerBound..<end.upperBound), options: [], format: nil),
+           let dictionary = plist as? [String: Any],
+           let entitlements = dictionary["Entitlements"] as? [String: Any],
+           let groups = entitlements["com.apple.security.application-groups"] as? [String] {
+            candidates += groups
+        }
+        candidates.append(original)
+        return Array(Set(candidates.filter { $0.contains(original) })).sorted()
+    }
+    static var activeGroup: String? {
+        groupCandidates.first { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil }
+    }
+    static var diagnostic: String {
+        "Bundle: \(Bundle.main.bundleIdentifier ?? "?")\nGrup activ: \(activeGroup ?? "indisponibil")\nGrupuri declarate: \(groupCandidates.joined(separator: ", "))"
+    }
     static var file: URL? {
-        guard let group = Bundle.main.object(forInfoDictionaryKey: "CursaAppGroup") as? String else { return nil }
+        guard let group = activeGroup else { return nil }
         return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appendingPathComponent("current.json")
     }
     static func write(_ offer: Offer?, message: String) {

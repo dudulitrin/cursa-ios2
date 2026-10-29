@@ -16,6 +16,9 @@ struct MainView: View {
                 Text("PROTOTIP EXPERIMENTAL · iOS 26").font(.caption).foregroundStyle(.secondary)
                 PreviewView(model: model).frame(height: 180).clipShape(RoundedRectangle(cornerRadius: 20))
                 Text(model.status).font(.callout)
+                DisclosureGroup("Diagnostic instalare") {
+                    Text(SharedStore.diagnostic).font(.caption).textSelection(.enabled)
+                }
                 Button("1. Test PiP cu 3,32 lei/km") { model.demo = true; model.render(); model.start() }.buttonStyle(.borderedProminent)
                 Button("2. Activează citirea reală") { model.demo = false; model.render() }.buttonStyle(.bordered)
                 Text("3. Apasă butonul de mai jos și pornește difuzarea Cursa. Microfonul nu este necesar.")
@@ -33,7 +36,13 @@ struct MainView: View {
 struct BroadcastPicker: UIViewRepresentable {
     func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
         let view = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
-        view.preferredExtension = (Bundle.main.bundleIdentifier ?? "ro.cursa.prototype") + ".Broadcast"
+        if let plugins = Bundle.main.builtInPlugInsURL,
+           let contents = try? FileManager.default.contentsOfDirectory(at: plugins, includingPropertiesForKeys: nil),
+           let extensionBundle = contents.compactMap({ Bundle(url: $0) }).first(where: {
+               ($0.infoDictionary?["NSExtension"] as? [String: Any])?["NSExtensionPointIdentifier"] as? String == "com.apple.broadcast-services-upload"
+           }) {
+            view.preferredExtension = extensionBundle.bundleIdentifier
+        }
         view.showsMicrophoneButton = false
         return view
     }
