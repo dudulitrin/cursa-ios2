@@ -4,14 +4,20 @@ struct Offer: Codable, Equatable {
     let price: Double
     let pickup: Double
     let trip: Double
+    var totalMinutes: Double? = nil
     var perKM: Double { price / (pickup + trip) }
+    var totalDistance: Double { pickup + trip }
+    var perHour: Double? {
+        guard let minutes = totalMinutes, minutes > 0 else { return nil }
+        return price * 60 / minutes
+    }
 }
 
 enum OfferParser {
     // Fail closed: exactly one price and two km values, plus an offer action.
     static func parse(_ text: String) -> Offer? {
         let lower = text.lowercased()
-        guard lower.contains("confirm") || lower.contains("accept") else { return nil }
+        guard lower.contains("confirm") || lower.contains("accept") || lower.range(of: #"\bmatch\b"#, options: .regularExpression) != nil else { return nil }
         func values(_ pattern: String) -> [Double] {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
             let ns = text as NSString
@@ -27,7 +33,12 @@ enum OfferParser {
         let km = values(#"\b(\d+(?:[.,]\d+)?)\s*km\b"#)
         guard prices.count == 1, km.count == 2,
               prices[0] > 0, km[0] + km[1] > 0 else { return nil }
-        return Offer(price: prices[0], pickup: km[0], trip: km[1])
+        // Exactly two minute values: pickup + passenger trip. If OCR is
+        // incomplete or another time is present, do not invent an hourly rate.
+        let minutes = values(#"\b(\d+(?:[.,]\d+)?)[\t \u00A0]*(?:min|minute|minutes)\b"#)
+        let hours = values(#"\b(\d+(?:[.,]\d+)?)[\t \u00A0]*(?:h|hr|hour|hours|oră|ore)\b"#)
+        let total = hours.isEmpty && minutes.count == 2 && minutes.reduce(0, +) > 0 ? minutes.reduce(0, +) : nil
+        return Offer(price: prices[0], pickup: km[0], trip: km[1], totalMinutes: total)
     }
 }
 
