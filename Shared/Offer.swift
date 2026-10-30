@@ -38,6 +38,14 @@ enum OfferParser {
         let minutes = values(#"\b(\d+(?:[.,]\d+)?)[\t \u00A0]*(?:min|minute|minutes)\b"#)
         let hours = values(#"\b(\d+(?:[.,]\d+)?)[\t \u00A0]*(?:h|hr|hour|hours|oră|ore)\b"#)
         let total = hours.isEmpty && minutes.count == 2 && minutes.reduce(0, +) > 0 ? minutes.reduce(0, +) : nil
+        // OCR can drop a decimal point (7.1 -> 71). Reject implausible
+        // distance/time pairs; never invent a decimal point or divide by ten.
+        // This is a conservative recognition heuristic, not a speed limit.
+        if hours.isEmpty && minutes.count == 2 {
+            for (distance, duration) in zip(km, minutes) where duration > 0 {
+                guard distance * 60 / duration <= 160 else { return nil }
+            }
+        }
         return Offer(price: prices[0], pickup: km[0], trip: km[1], totalMinutes: total)
     }
 }
