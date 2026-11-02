@@ -39,3 +39,14 @@ check(OfferParser.parse("lei 24.90\n1 min • 0.7 km\n17 min • 71 km\nConfirm"
 check(OfferParser.parse("lei 24.90\n1 min • 7 km\n17 min • 7.1 km\nConfirm") == nil, "Dropped pickup decimal rejected")
 check(OfferParser.parse("lei 100\n1 min • 0.7 km\n60 min • 71 km\nConfirm") != nil, "Real long trip retained")
 print("30 parser checks passed")
+
+let bonusTrip = "\nlei 11.55 (NET, tax included)\n2 min • 1.1 km\n5 min • 2.4 km\nAccept"
+for badge in ["+lei 1.05 included", "lei 1.05 included", "+1,05 lei included", "+RON 1,05 inclus", "+lei 1.05\nincluded"] {
+    let parsed = OfferParser.parse(badge + bonusTrip)
+    check(parsed == Offer(price: 11.55, pickup: 1.1, trip: 2.4, totalMinutes: 7), "Included bonus must not be a second fare")
+    check(abs(parsed!.perKM - 3.3) < 0.000001, "Bonus screenshot km rate")
+    check(abs(parsed!.perHour! - 99) < 0.000001, "Bonus screenshot hourly rate")
+}
+check(OfferParser.parse("+lei 1.05 included\n2 min 1.1 km\n5 min 2.4 km\nAccept") == nil, "Bonus alone is not a fare")
+check(OfferParser.parse("lei 1.05" + bonusTrip) == nil, "Unlabelled second price remains ambiguous")
+print("Included bonus regression checks passed")

@@ -18,17 +18,23 @@ enum OfferParser {
     static func parse(_ text: String) -> Offer? {
         let lower = text.lowercased()
         guard lower.contains("confirm") || lower.contains("accept") || lower.range(of: #"\bmatch\b"#, options: .regularExpression) != nil else { return nil }
-        func values(_ pattern: String) -> [Double] {
+        func values(_ pattern: String, in source: String? = nil) -> [Double] {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
-            let ns = text as NSString
-            return regex.matches(in: text, range: NSRange(location: 0, length: ns.length)).compactMap {
+            let input = source ?? text
+            let ns = input as NSString
+            return regex.matches(in: input, range: NSRange(location: 0, length: ns.length)).compactMap {
                 Double(ns.substring(with: $0.range(at: 1)).replacingOccurrences(of: ",", with: "."))
             }
         }
         // Currency and amount must be on the same OCR line. Using \s here
         // incorrectly reads "12,60 lei\n0,4 km" as a second price of 0.4.
-        let before = values(#"\b(?:lei|ron)[\t \u00A0]*(\d+(?:[.,]\d{1,2})?)\b"#)
-        let after = values(#"\b(\d+(?:[.,]\d{1,2})?)[\t \u00A0]*(?:lei|ron)\b"#)
+        // Bolt's bonus badge is already included in the total fare.
+        // Remove only amounts explicitly followed by "included"/"inclus".
+        // Keep rejecting other ambiguous prices; never pick the largest one.
+        let bonusPattern = #"(?i)\+?[\t \u00A0]*\b(?:(?:lei|ron)[\t \u00A0]*\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?[\t \u00A0]*(?:lei|ron))\s+(?:included|inclus|inclusă)\b"#
+        let priceText = text.replacingOccurrences(of: bonusPattern, with: " ", options: .regularExpression)
+        let before = values(#"\b(?:lei|ron)[\t \u00A0]*(\d+(?:[.,]\d{1,2})?)\b"#, in: priceText)
+        let after = values(#"\b(\d+(?:[.,]\d{1,2})?)[\t \u00A0]*(?:lei|ron)\b"#, in: priceText)
         let prices = before + after
         let km = values(#"\b(\d+(?:[.,]\d+)?)\s*km\b"#)
         guard prices.count == 1, km.count == 2,
