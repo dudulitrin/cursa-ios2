@@ -15,10 +15,8 @@ final class PiPModel: NSObject, ObservableObject, AVPictureInPictureSampleBuffer
     private var timer: Timer?
     private var possibleObservation: NSKeyValueObservation?
     private var wantsStart = false
-    // Retain only real, confirmed offers for the lifetime of this model.
-    // Demo frames and incomplete OCR must never replace this value.
-    private var lastRealOffer: Offer?
-    private var lastRealOfferTime: Date?
+    private var retainedOffer: Offer?
+    private var retainedDetail = ""
 
     func setup() {
         guard pip == nil else { return }
@@ -52,7 +50,6 @@ final class PiPModel: NSObject, ObservableObject, AVPictureInPictureSampleBuffer
     func stop() { wantsStart = false; pip?.stopPictureInPicture() }
     func render() {
         var currentOffer: Offer?
-        var showingLastOffer = false
         var detail = "Aștept oferta"
         if demo {
             currentOffer = Offer(price: 12.60, pickup: 0.4, trip: 3.4, totalMinutes: 9)
@@ -61,30 +58,17 @@ final class PiPModel: NSObject, ObservableObject, AVPictureInPictureSampleBuffer
             detail = "App Group indisponibil"
         } else if let snapshot = SharedStore.read(), Date().timeIntervalSince(snapshot.timestamp) < 3 {
             if let offer = snapshot.offer {
-                lastRealOffer = offer
-                lastRealOfferTime = snapshot.timestamp
                 currentOffer = offer
                 detail = offer.totalMinutes == nil ? "Durata nu a fost citită complet" : "Ofertă detectată"
             } else { detail = snapshot.message }
         } else { detail = "Fără date recente · pornește captura" }
-        if !demo, currentOffer == nil, let previous = lastRealOffer {
-            currentOffer = previous
-            showingLastOffer = true
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "ro_RO")
-            formatter.dateFormat = "HH:mm"
-            let time = lastRealOfferTime.map { formatter.string(from: $0) } ?? ""
-            detail = "Ultima ofertă · \(time)"
-            // Keep capture problems visible in the app while the PiP marks
-            // the retained numbers as historical, not a newly read offer.
-            if SharedStore.file == nil {
-                detail += " · App Group indisponibil"
-            } else if let snapshot = SharedStore.read(), Date().timeIntervalSince(snapshot.timestamp) < 3 {
-                if snapshot.message == "Captură oprită" || snapshot.message == "Captură întreruptă" {
-                    detail += " · \(snapshot.message)"
-                }
-            } else {
-                detail += " · fără citiri recente"
+        if !demo {
+            if let offer = currentOffer {
+                retainedOffer = offer
+                retainedDetail = detail
+            } else if let offer = retainedOffer {
+                currentOffer = offer
+                detail = retainedDetail
             }
         }
         if !wantsStart { status = detail }
@@ -126,7 +110,7 @@ final class PiPModel: NSObject, ObservableObject, AVPictureInPictureSampleBuffer
         text(number(minutes, digits: durationDigits) + " min", CGRect(x: 348, y: 248, width: 250, height: 65), size: 43, weight: .bold)
         // Keep operational status out of a valid live offer; label demo and
         // missing values so they cannot be mistaken for measured live results.
-        if demo || showingLastOffer || currentOffer == nil || currentOffer?.totalMinutes == nil {
+        if demo || currentOffer == nil || currentOffer?.totalMinutes == nil {
             text(detail, CGRect(x: 28, y: 355, width: 584, height: 36), size: 20, color: muted, weight: .medium)
         }
         UIGraphicsPopContext()
